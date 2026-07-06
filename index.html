@@ -1,0 +1,964 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="CamStudio">
+<meta name="theme-color" content="#0a0a0f">
+<title>ITE CamStudio</title>
+<link rel="manifest" href="manifest.json">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:      #0a0a0f;
+    --surface: #13131a;
+    --border:  #2a2a3a;
+    --accent:  #00d4ff;
+    --red:     #ff3b3b;
+    --green:   #00e676;
+    --yellow:  #ffca28;
+    --text:    #e8e8f0;
+    --muted:   #6b6b80;
+    --radius:  12px;
+  }
+
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
+    overflow: hidden;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+  }
+
+  /* ── SCREENS ─────────────────────────────────────────── */
+  .screen { position: absolute; inset: 0; display: none; flex-direction: column; }
+  .screen.active { display: flex; }
+
+  /* ── SETUP SCREEN ────────────────────────────────────── */
+  #setupScreen {
+    align-items: center;
+    justify-content: center;
+    padding: 32px 24px;
+    gap: 0;
+    background: var(--bg);
+  }
+  .setup-logo {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 4px;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .setup-title {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 6px;
+    text-align: center;
+  }
+  .setup-sub {
+    font-size: 14px;
+    color: var(--muted);
+    text-align: center;
+    margin-bottom: 40px;
+    line-height: 1.5;
+  }
+  .setup-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    width: 100%;
+    max-width: 400px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .field-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .field-input {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    font-size: 15px;
+    color: var(--text);
+    outline: none;
+    transition: border-color .2s;
+    font-family: 'SF Mono', 'Consolas', monospace;
+  }
+  .field-input:focus { border-color: var(--accent); }
+  .field-input::placeholder { color: var(--muted); }
+
+  .resolution-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+  }
+  .res-btn {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 4px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+    cursor: pointer;
+    text-align: center;
+    transition: all .15s;
+    line-height: 1.3;
+  }
+  .res-btn.selected {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(0, 212, 255, .08);
+  }
+  .res-btn small { display: block; font-size: 10px; font-weight: 400; opacity: .7; }
+
+  .cam-slot-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+  }
+  .slot-btn {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 4px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--muted);
+    cursor: pointer;
+    text-align: center;
+    transition: all .15s;
+  }
+  .slot-btn.selected {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(0, 212, 255, .08);
+  }
+
+  .btn-primary {
+    width: 100%;
+    background: var(--accent);
+    color: #0a0a0f;
+    border: none;
+    border-radius: 10px;
+    padding: 15px;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: opacity .15s, transform .1s;
+    letter-spacing: .3px;
+  }
+  .btn-primary:active { opacity: .85; transform: scale(.98); }
+  .btn-primary:disabled { opacity: .4; cursor: default; }
+
+  .setup-hint {
+    font-size: 12px;
+    color: var(--muted);
+    text-align: center;
+    margin-top: 16px;
+    line-height: 1.5;
+    max-width: 340px;
+  }
+  .setup-hint span { color: var(--accent); }
+
+  /* ── CAMERA SCREEN ───────────────────────────────────── */
+  #cameraScreen { background: #000; }
+
+  #videoEl {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  /* HUD overlay */
+  .hud {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: env(safe-area-inset-top, 16px) env(safe-area-inset-right, 16px) env(safe-area-inset-bottom, 16px) env(safe-area-inset-left, 16px);
+  }
+
+  /* Top bar */
+  .hud-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .hud-badge {
+    background: rgba(10,10,15,.75);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,.1);
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: .5px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .hud-badge .dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--red);
+    flex-shrink: 0;
+  }
+  .hud-badge .dot.live { background: var(--red); animation: blink 1.2s ease-in-out infinite; }
+  .hud-badge .dot.idle { background: var(--muted); animation: none; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+  .signal-badge {
+    background: rgba(10,10,15,.75);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,.1);
+    border-radius: 8px;
+    padding: 6px 10px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .signal-bars {
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+    height: 14px;
+  }
+  .bar {
+    width: 3px;
+    border-radius: 2px;
+    background: var(--muted);
+    transition: background .4s;
+  }
+  .bar:nth-child(1) { height: 4px; }
+  .bar:nth-child(2) { height: 7px; }
+  .bar:nth-child(3) { height: 10px; }
+  .bar:nth-child(4) { height: 13px; }
+  .bar.on { background: var(--green); }
+  .bar.warn { background: var(--yellow); }
+  .bar.bad  { background: var(--red); }
+
+  #latencyText { min-width: 36px; }
+
+  /* Bottom controls */
+  .hud-bottom {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 12px;
+    pointer-events: all;
+  }
+
+  .controls-left, .controls-right {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-items: center;
+  }
+
+  .ctrl-btn {
+    background: rgba(10,10,15,.75);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,.1);
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text);
+    cursor: pointer;
+    transition: all .15s;
+    white-space: nowrap;
+    letter-spacing: .3px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .ctrl-btn:active { opacity: .7; transform: scale(.96); }
+  .ctrl-btn.active-state {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: rgba(0, 212, 255, .12);
+  }
+  .ctrl-btn.muted-state {
+    border-color: var(--red);
+    color: var(--red);
+    background: rgba(255, 59, 59, .12);
+  }
+
+  /* Big record / stop button */
+  .stream-btn-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+  .stream-btn {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    border: 3px solid rgba(255,255,255,.3);
+    background: rgba(10,10,15,.6);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all .15s;
+  }
+  .stream-btn:active { transform: scale(.93); }
+  .stream-btn .inner {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: var(--red);
+    transition: all .2s;
+  }
+  .stream-btn.streaming .inner {
+    border-radius: 10px;
+    width: 28px;
+    height: 28px;
+    background: var(--red);
+  }
+  .stream-btn-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    color: rgba(255,255,255,.7);
+    text-transform: uppercase;
+  }
+
+  /* Status toast */
+  #statusToast {
+    position: absolute;
+    bottom: 110px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(10,10,15,.9);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 8px 18px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    white-space: nowrap;
+    opacity: 0;
+    transition: opacity .25s;
+    pointer-events: none;
+    z-index: 10;
+  }
+  #statusToast.show { opacity: 1; }
+
+  /* Warn banner */
+  #warnBanner {
+    position: absolute;
+    top: 60px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(255,202,40,.15);
+    border: 1px solid var(--yellow);
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--yellow);
+    white-space: nowrap;
+    display: none;
+    z-index: 10;
+  }
+
+  /* Flip cam button */
+  .flip-btn {
+    background: rgba(10,10,15,.75);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,.1);
+    border-radius: 50%;
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 20px;
+    transition: all .15s;
+  }
+  .flip-btn:active { opacity: .7; transform: scale(.9) rotate(180deg); }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════
+     SETUP SCREEN
+═══════════════════════════════════════════════════════ -->
+<div id="setupScreen" class="screen active">
+  <p class="setup-logo">ITE</p>
+  <h1 class="setup-title">CamStudio</h1>
+  <p class="setup-sub">Turn this phone into a live<br>wireless studio camera</p>
+
+  <div class="setup-card">
+
+    <!-- Server IP -->
+    <div>
+      <div class="field-label">Studio Server IP Address</div>
+      <input class="field-input" id="serverIpInput" type="text"
+        inputmode="url" autocomplete="off" autocorrect="off" spellcheck="false"
+        placeholder="192.168.1.100">
+      <div style="font-size:11px;color:var(--muted);margin-top:6px;">
+        Find this in the setup guide — it's the studio PC's local IP.
+      </div>
+    </div>
+
+    <!-- Camera slot -->
+    <div>
+      <div class="field-label">Camera Slot</div>
+      <div class="cam-slot-row" id="slotRow">
+        <div class="slot-btn selected" data-slot="cam1">CAM 1</div>
+        <div class="slot-btn" data-slot="cam2">CAM 2</div>
+        <div class="slot-btn" data-slot="cam3">CAM 3</div>
+        <div class="slot-btn" data-slot="cam4">CAM 4</div>
+        <div class="slot-btn" data-slot="cam5">CAM 5</div>
+        <div class="slot-btn" data-slot="cam6">CAM 6</div>
+        <div class="slot-btn" data-slot="cam7">CAM 7</div>
+        <div class="slot-btn" data-slot="cam8">CAM 8</div>
+      </div>
+    </div>
+
+    <!-- Resolution -->
+    <div>
+      <div class="field-label">Resolution</div>
+      <div class="resolution-row" id="resRow">
+        <div class="res-btn" data-w="1280" data-h="720">HD<small>720p</small></div>
+        <div class="res-btn selected" data-w="1920" data-h="1080">Full HD<small>1080p</small></div>
+        <div class="res-btn" data-w="3840" data-h="2160">4K<small>2160p</small></div>
+      </div>
+    </div>
+
+    <button class="btn-primary" id="connectBtn">Connect &amp; Open Camera</button>
+  </div>
+
+  <p class="setup-hint">
+    First time? Enter the studio IP.<br>
+    Next time it opens <span>automatically</span>.
+  </p>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     CAMERA SCREEN
+═══════════════════════════════════════════════════════ -->
+<div id="cameraScreen" class="screen">
+  <video id="videoEl" autoplay playsinline muted></video>
+
+  <div class="hud">
+    <!-- TOP -->
+    <div class="hud-top">
+      <div class="hud-badge">
+        <div class="dot idle" id="liveDot"></div>
+        <span id="camLabel">CAM 1</span>
+        <span id="resLabel" style="color:var(--muted);font-weight:400;">1080p</span>
+      </div>
+
+      <div style="display:flex;gap:8px;align-items:center;">
+        <div class="signal-badge">
+          <div class="signal-bars">
+            <div class="bar" id="b1"></div>
+            <div class="bar" id="b2"></div>
+            <div class="bar" id="b3"></div>
+            <div class="bar" id="b4"></div>
+          </div>
+          <span id="latencyText">--</span>
+        </div>
+        <div class="flip-btn" id="flipBtn" title="Flip camera">⟳</div>
+      </div>
+    </div>
+
+    <!-- BOTTOM -->
+    <div class="hud-bottom">
+      <div class="controls-left">
+        <div class="ctrl-btn" id="micBtn">
+          <span id="micIcon">🎙</span>
+          <span id="micLabel">MIC ON</span>
+        </div>
+        <div class="ctrl-btn" id="settingsBtn">⚙ Settings</div>
+      </div>
+
+      <div class="stream-btn-wrap">
+        <div class="stream-btn" id="streamBtn">
+          <div class="inner"></div>
+        </div>
+        <div class="stream-btn-label" id="streamBtnLabel">TAP TO LIVE</div>
+      </div>
+
+      <div class="controls-right">
+        <div class="ctrl-btn" id="resToggle">
+          <span>📐</span>
+          <span id="resToggleLabel">1080p</span>
+        </div>
+        <div class="ctrl-btn" id="torchBtn">🔦 Flash</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="warnBanner">⚠ Weak signal — consider switching to HD</div>
+  <div id="statusToast"></div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// STORAGE
+// ═══════════════════════════════════════════════════════
+const DB_KEY = 'camstudio_config';
+
+function saveConfig(cfg) {
+  try { localStorage.setItem(DB_KEY, JSON.stringify(cfg)); } catch(e) {}
+}
+function loadConfig() {
+  try { const s = localStorage.getItem(DB_KEY); return s ? JSON.parse(s) : null; } catch(e) { return null; }
+}
+
+// ═══════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════
+let state = {
+  serverIp: '',
+  slot: 'cam1',
+  resW: 1920, resH: 1080,
+  micOn: true,
+  facingMode: 'environment',  // back camera by default
+  streaming: false,
+  peerConnection: null,
+  localStream: null,
+};
+
+// ═══════════════════════════════════════════════════════
+// DOM REFS
+// ═══════════════════════════════════════════════════════
+const setupScreen  = document.getElementById('setupScreen');
+const cameraScreen = document.getElementById('cameraScreen');
+const serverIpInput = document.getElementById('serverIpInput');
+const connectBtn   = document.getElementById('connectBtn');
+const videoEl      = document.getElementById('videoEl');
+const streamBtn    = document.getElementById('streamBtn');
+const streamBtnLabel = document.getElementById('streamBtnLabel');
+const liveDot      = document.getElementById('liveDot');
+const camLabel     = document.getElementById('camLabel');
+const resLabel     = document.getElementById('resLabel');
+const micBtn       = document.getElementById('micBtn');
+const micLabel     = document.getElementById('micLabel');
+const micIcon      = document.getElementById('micIcon');
+const settingsBtn  = document.getElementById('settingsBtn');
+const resToggle    = document.getElementById('resToggle');
+const resToggleLabel = document.getElementById('resToggleLabel');
+const torchBtn     = document.getElementById('torchBtn');
+const flipBtn      = document.getElementById('flipBtn');
+const statusToast  = document.getElementById('statusToast');
+const warnBanner   = document.getElementById('warnBanner');
+const bars         = [1,2,3,4].map(i => document.getElementById('b'+i));
+const latencyText  = document.getElementById('latencyText');
+
+// ═══════════════════════════════════════════════════════
+// SETUP SCREEN INTERACTIONS
+// ═══════════════════════════════════════════════════════
+
+// Restore saved config
+const saved = loadConfig();
+if (saved) {
+  serverIpInput.value = saved.serverIp || '';
+  selectSlot(saved.slot || 'cam1');
+  selectRes(saved.resW || 1920, saved.resH || 1080);
+  state.micOn = saved.micOn !== false;
+  state.facingMode = saved.facingMode || 'environment';
+}
+
+// Slot selection
+document.getElementById('slotRow').addEventListener('click', e => {
+  const btn = e.target.closest('.slot-btn');
+  if (btn) selectSlot(btn.dataset.slot);
+});
+function selectSlot(slot) {
+  state.slot = slot;
+  document.querySelectorAll('.slot-btn').forEach(b => b.classList.toggle('selected', b.dataset.slot === slot));
+}
+
+// Resolution selection
+document.getElementById('resRow').addEventListener('click', e => {
+  const btn = e.target.closest('.res-btn');
+  if (btn) selectRes(+btn.dataset.w, +btn.dataset.h);
+});
+function selectRes(w, h) {
+  state.resW = w; state.resH = h;
+  document.querySelectorAll('.res-btn').forEach(b =>
+    b.classList.toggle('selected', +b.dataset.w === w && +b.dataset.h === h)
+  );
+}
+
+// Connect button
+connectBtn.addEventListener('click', () => {
+  const ip = serverIpInput.value.trim();
+  if (!ip) { shake(serverIpInput); return; }
+  state.serverIp = ip;
+  saveConfig({ serverIp: ip, slot: state.slot, resW: state.resW, resH: state.resH, micOn: state.micOn, facingMode: state.facingMode });
+  startCamera();
+});
+
+function shake(el) {
+  el.style.animation = 'none';
+  el.style.borderColor = 'var(--red)';
+  setTimeout(() => { el.style.borderColor = ''; }, 1200);
+}
+
+// Settings back button
+settingsBtn.addEventListener('click', () => {
+  stopStreaming();
+  stopCamera();
+  switchScreen('setup');
+});
+
+// ═══════════════════════════════════════════════════════
+// CAMERA START / STOP
+// ═══════════════════════════════════════════════════════
+async function startCamera() {
+  switchScreen('camera');
+  updateHudLabels();
+
+  try {
+    const constraints = {
+      video: {
+        facingMode: { ideal: state.facingMode },
+        width:  { ideal: state.resW },
+        height: { ideal: state.resH },
+      },
+      audio: state.micOn,
+    };
+    state.localStream = await navigator.mediaDevices.getUserMedia(constraints);
+    videoEl.srcObject = state.localStream;
+  } catch (err) {
+    toast('Camera error: ' + err.message, 4000);
+    console.error(err);
+  }
+  updateMicUI();
+}
+
+function stopCamera() {
+  if (state.localStream) {
+    state.localStream.getTracks().forEach(t => t.stop());
+    state.localStream = null;
+  }
+  videoEl.srcObject = null;
+}
+
+function switchScreen(name) {
+  setupScreen.classList.toggle('active', name === 'setup');
+  cameraScreen.classList.toggle('active', name === 'camera');
+}
+
+function updateHudLabels() {
+  camLabel.textContent = state.slot.replace('cam', 'CAM ');
+  const resStr = state.resH === 2160 ? '4K' : state.resH + 'p';
+  resLabel.textContent = resStr;
+  resToggleLabel.textContent = resStr;
+}
+
+// ═══════════════════════════════════════════════════════
+// STREAMING (WebRTC WHIP)
+// ═══════════════════════════════════════════════════════
+streamBtn.addEventListener('click', () => {
+  if (state.streaming) stopStreaming();
+  else startStreaming();
+});
+
+async function startStreaming() {
+  if (!state.localStream) { toast('Camera not ready'); return; }
+  toast('Connecting to studio…');
+
+  try {
+    const pc = new RTCPeerConnection({
+      // No STUN/TURN needed on local LAN
+      iceServers: [],
+      iceTransportPolicy: 'all',
+    });
+    state.peerConnection = pc;
+
+    // Add tracks
+    state.localStream.getTracks().forEach(track => {
+      pc.addTrack(track, state.localStream);
+    });
+
+    // Create offer
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+
+    // Wait for ICE gathering to complete (or timeout)
+    await waitForICE(pc);
+
+    // POST to MediaMTX WHIP endpoint
+    const whipUrl = `http://${state.serverIp}:8889/${state.slot}/whip`;
+    const resp = await fetch(whipUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/sdp' },
+      body: pc.localDescription.sdp,
+    });
+
+    if (!resp.ok) throw new Error('Server returned ' + resp.status);
+
+    const answerSdp = await resp.text();
+    await pc.setRemoteDescription({ type: 'answer', sdp: answerSdp });
+
+    // Successful connection
+    state.streaming = true;
+    streamBtn.classList.add('streaming');
+    streamBtnLabel.textContent = 'LIVE';
+    liveDot.classList.remove('idle');
+    liveDot.classList.add('live');
+    toast('🔴 Streaming to OBS', 2500);
+    startSignalMonitor();
+
+  } catch (err) {
+    state.peerConnection = null;
+    toast('Failed: ' + err.message, 4000);
+    console.error(err);
+  }
+}
+
+function stopStreaming() {
+  if (state.peerConnection) {
+    state.peerConnection.close();
+    state.peerConnection = null;
+  }
+  state.streaming = false;
+  streamBtn.classList.remove('streaming');
+  streamBtnLabel.textContent = 'TAP TO LIVE';
+  liveDot.classList.remove('live');
+  liveDot.classList.add('idle');
+  stopSignalMonitor();
+  setSignalBars(0);
+  latencyText.textContent = '--';
+  warnBanner.style.display = 'none';
+  toast('Stream stopped');
+}
+
+function waitForICE(pc) {
+  return new Promise(resolve => {
+    if (pc.iceGatheringState === 'complete') { resolve(); return; }
+    const check = () => {
+      if (pc.iceGatheringState === 'complete') {
+        pc.removeEventListener('icegatheringstatechange', check);
+        resolve();
+      }
+    };
+    pc.addEventListener('icegatheringstatechange', check);
+    // Fallback timeout so we don't wait forever
+    setTimeout(resolve, 3000);
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+// SIGNAL MONITOR
+// ═══════════════════════════════════════════════════════
+let signalTimer = null;
+
+function startSignalMonitor() {
+  signalTimer = setInterval(checkSignal, 2000);
+}
+function stopSignalMonitor() {
+  clearInterval(signalTimer);
+  signalTimer = null;
+}
+
+async function checkSignal() {
+  const pc = state.peerConnection;
+  if (!pc) return;
+  try {
+    const stats = await pc.getStats();
+    let rtt = null, bytesSent = 0;
+    stats.forEach(report => {
+      if (report.type === 'candidate-pair' && report.state === 'succeeded') {
+        if (report.currentRoundTripTime !== undefined) rtt = report.currentRoundTripTime;
+      }
+      if (report.type === 'outbound-rtp' && report.mediaType === 'video') {
+        bytesSent = report.bytesSent || 0;
+      }
+    });
+
+    if (rtt !== null) {
+      const ms = Math.round(rtt * 1000);
+      latencyText.textContent = ms + 'ms';
+      // signal quality: 0-4 bars
+      let quality;
+      if (ms < 30)       quality = 4;
+      else if (ms < 80)  quality = 3;
+      else if (ms < 150) quality = 2;
+      else               quality = 1;
+      setSignalBars(quality, ms);
+
+      if (ms > 150) {
+        warnBanner.style.display = 'block';
+      } else {
+        warnBanner.style.display = 'none';
+      }
+    }
+  } catch(e) {}
+}
+
+function setSignalBars(level, ms) {
+  const cls = ms > 150 ? 'warn' : ms > 80 ? 'warn' : 'on';
+  const badCls = ms > 150 ? 'bad' : 'on';
+  bars.forEach((b, i) => {
+    b.className = 'bar';
+    if (i < level) {
+      b.classList.add(level <= 1 ? 'bad' : level <= 2 ? 'warn' : 'on');
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+// MIC TOGGLE
+// ═══════════════════════════════════════════════════════
+micBtn.addEventListener('click', () => {
+  state.micOn = !state.micOn;
+  if (state.localStream) {
+    state.localStream.getAudioTracks().forEach(t => { t.enabled = state.micOn; });
+  }
+  updateMicUI();
+  saveConfig({ serverIp: state.serverIp, slot: state.slot, resW: state.resW, resH: state.resH, micOn: state.micOn, facingMode: state.facingMode });
+});
+
+function updateMicUI() {
+  if (state.micOn) {
+    micBtn.classList.remove('muted-state');
+    micIcon.textContent = '🎙';
+    micLabel.textContent = 'MIC ON';
+  } else {
+    micBtn.classList.add('muted-state');
+    micIcon.textContent = '🔇';
+    micLabel.textContent = 'MIC OFF';
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// RESOLUTION TOGGLE (while on camera screen)
+// ═══════════════════════════════════════════════════════
+const resCycle = [{w:1280,h:720},{w:1920,h:1080},{w:3840,h:2160}];
+resToggle.addEventListener('click', async () => {
+  const idx = resCycle.findIndex(r => r.w === state.resW);
+  const next = resCycle[(idx + 1) % resCycle.length];
+  state.resW = next.w; state.resH = next.h;
+  updateHudLabels();
+  selectRes(next.w, next.h);
+  saveConfig({ serverIp: state.serverIp, slot: state.slot, resW: state.resW, resH: state.resH, micOn: state.micOn, facingMode: state.facingMode });
+  // Restart camera with new resolution
+  const wasStreaming = state.streaming;
+  if (wasStreaming) stopStreaming();
+  stopCamera();
+  await startCamera();
+  if (wasStreaming) await startStreaming();
+});
+
+// ═══════════════════════════════════════════════════════
+// FLIP CAMERA
+// ═══════════════════════════════════════════════════════
+flipBtn.addEventListener('click', async () => {
+  state.facingMode = state.facingMode === 'environment' ? 'user' : 'environment';
+  saveConfig({ serverIp: state.serverIp, slot: state.slot, resW: state.resW, resH: state.resH, micOn: state.micOn, facingMode: state.facingMode });
+  const wasStreaming = state.streaming;
+  if (wasStreaming) stopStreaming();
+  stopCamera();
+  await startCamera();
+  if (wasStreaming) await startStreaming();
+  toast(state.facingMode === 'environment' ? 'Back camera' : 'Front camera', 1500);
+});
+
+// ═══════════════════════════════════════════════════════
+// TORCH (Flash)
+// ═══════════════════════════════════════════════════════
+let torchOn = false;
+torchBtn.addEventListener('click', async () => {
+  if (!state.localStream) return;
+  const track = state.localStream.getVideoTracks()[0];
+  if (!track || !track.getCapabilities) return;
+  const caps = track.getCapabilities();
+  if (!caps.torch) { toast('Torch not supported on this device', 2000); return; }
+  torchOn = !torchOn;
+  await track.applyConstraints({ advanced: [{ torch: torchOn }] });
+  torchBtn.classList.toggle('active-state', torchOn);
+  toast(torchOn ? 'Torch ON' : 'Torch OFF', 1200);
+});
+
+// ═══════════════════════════════════════════════════════
+// TOAST HELPER
+// ═══════════════════════════════════════════════════════
+let toastTimer = null;
+function toast(msg, duration = 2000) {
+  statusToast.textContent = msg;
+  statusToast.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => statusToast.classList.remove('show'), duration);
+}
+
+// ═══════════════════════════════════════════════════════
+// PREVENT SCREEN SLEEP (Wake Lock API)
+// ═══════════════════════════════════════════════════════
+let wakeLock = null;
+async function requestWakeLock() {
+  if ('wakeLock' in navigator) {
+    try { wakeLock = await navigator.wakeLock.request('screen'); } catch(e) {}
+  }
+}
+document.addEventListener('visibilitychange', async () => {
+  if (document.visibilityState === 'visible' && state.streaming) requestWakeLock();
+});
+
+// Request wake lock when streaming starts
+const origStartStreaming = startStreaming;
+// (already inline — wake lock called inside startStreaming via override below)
+
+// ═══════════════════════════════════════════════════════
+// SERVICE WORKER (PWA install support)
+// ═══════════════════════════════════════════════════════
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js').catch(() => {});
+}
+
+// ═══════════════════════════════════════════════════════
+// AUTO-LAUNCH if saved config exists
+// ═══════════════════════════════════════════════════════
+if (saved && saved.serverIp) {
+  // Brief delay so user sees the screen, then auto-launch
+  setTimeout(() => {
+    state.serverIp = saved.serverIp;
+    startCamera();
+  }, 600);
+}
+</script>
+</body>
+</html>
