@@ -722,7 +722,7 @@ async function startStreaming() {
     await waitForICE(pc);
 
     // POST to MediaMTX WHIP endpoint
-    const whipUrl = `http://${state.serverIp}:8889/${state.slot}/whip`;
+    const whipUrl = `https://${state.serverIp}:8889/${state.slot}/whip`;
     const resp = await fetch(whipUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/sdp' },
